@@ -1,0 +1,13 @@
+# Video to Text Skill 依赖
+
+# 必需：视频下载 + 字幕提取
+yt-dlp>=2024.1.0
+
+# 必需：音视频转码(系统也需要 ffmpeg 二进制,见 README)
+# ffmpeg 不在 pip 里,需要单独装(系统包管理器)
+
+# 听译需要(仅当视频没有现成字幕时才走)
+faster-whisper>=1.0.0
+
+# 显卡听译需要(老显卡如 GTX 1060 需装 cu126 版)
+# torch>=2.11.0 (CUDA 12.6 推荐,见 README 的"显卡地基"章节)
