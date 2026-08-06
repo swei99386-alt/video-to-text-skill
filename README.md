@@ -2,6 +2,12 @@
 
 # Video to Text Skill
 
+![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
+![Python 3.12+](https://img.shields.io/badge/Python-3.12+-blue.svg)
+![Status: Active](https://img.shields.io/badge/Status-Active-brightgreen.svg)
+
+> **💖 如果这个工具帮你省下了看视频的时间，欢迎在右上角点亮 ⭐️ Star，你的支持是我持续维护的动力！**
+
 想看一段 YouTube / X / 哔哩哔哩视频讲了什么，但不想看完整段？或者想拿到一份能复制粘贴的文字稿？这个 Skill 让 AI 一句话帮你搞定。
 
 它的策略很简单，但很关键：
@@ -11,6 +17,9 @@
 大多数正经视频（YouTube 演讲、播客）都自带字幕，几秒钟就能扒下来免费拿到稿子。只有在确实没字幕时，才下载视频、用显卡跑听译。这条铁律能省掉你下整段视频 + 听半小时的死功夫。
 
 ## 你能得到什么
+
+![演示图占位](https://via.placeholder.com/800x400.png?text=Showcase+Image+Here)
+*(建议后续将此处替换为实际运行截图)*
 
 - **一段视频链接或本地文件** → 拿到一份**干净纯文字稿**，直接 `完整文字稿.txt`。
 - 支持 **X / Twitter**、**YouTube**、**哔哩哔哩** 和本地音视频文件。
