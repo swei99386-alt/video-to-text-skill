@@ -11,7 +11,14 @@
 
 设计目标: 调用方（哪怕是很笨的第三方模型）只要会跑这一条命令就行，不需要自己判断走哪条路。
 """
-import sys, os, subprocess, re, glob
+import sys, os, subprocess, re, glob, shutil
+
+# Skill 会被 Codex 从任意工作目录用绝对路径启动；确保同目录的视觉旁路
+# 能被稳定找到，不依赖调用方是否设置 PYTHONPATH。
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+if SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, SCRIPT_DIR)
+
 # Windows 中文命令行默认 GBK, 强制 UTF-8 输出避免打印中文/符号时崩溃
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -40,6 +47,40 @@ SUB_LANGS = ",".join([
     "ja.*", "ja",
     "ko.*", "ko",
 ])
+
+VIDEO_EXTS = {
+    ".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v", ".wmv", ".flv",
+    ".mpeg", ".mpg", ".m2ts", ".mts", ".3gp", ".ogv", ".ts",
+}
+
+
+def parse_cli_args(argv):
+    """解析旧参数并增加可选 --visual，不改变原来的位置参数含义。"""
+    args = list(argv[1:])
+    visual = "--visual" in args
+    args = [arg for arg in args if arg != "--visual"]
+    if not args:
+        raise ValueError("缺少视频/音频链接或本地文件")
+    target = args[0]
+    folder = args[1] if len(args) > 1 else "视频转文字_输出"
+    language = args[2] if len(args) > 2 else None
+    return target, folder, language, visual
+
+
+def run_visual_if_requested(source, workdir, visual):
+    """只在明确传 --visual 时运行视觉旁路；原有默认路径完全不触发。"""
+    if not visual:
+        return
+    is_url = str(source).startswith("http")
+    if not is_url and os.path.splitext(str(source))[1].lower() not in VIDEO_EXTS:
+        print("[跳过] --visual 需要视频文件或视频链接；当前输入看起来是纯音频。", flush=True)
+        return
+    try:
+        from visual_evidence import run_visual_analysis
+        run_visual_analysis(source=str(source), workdir=workdir)
+    except RuntimeError as exc:
+        print(f"[失败] 视觉证据分析失败: {exc}", file=sys.stderr, flush=True)
+        sys.exit(5)
 
 
 def sh(cmd):
@@ -91,6 +132,10 @@ def try_subtitles(url, workdir, lang=None):
             if ".en-orig." in low or ".en." in low:
                 pick = s
                 break
+    # 给视觉旁路一个稳定入口，避免它在多语言字幕文件中重新猜选哪一份。
+    transcript_sidecar = os.path.join(workdir, "transcript.srt")
+    if os.path.abspath(pick) != os.path.abspath(transcript_sidecar):
+        shutil.copyfile(pick, transcript_sidecar)
     words = clean_srt_to_text(pick, os.path.join(workdir, "完整文字稿.txt"))
     return words
 
@@ -210,11 +255,13 @@ def transcribe_with_gpu(src_media, workdir, lang=None):
 
 def main():
     if len(sys.argv) < 2:
-        print("用法: python grab.py <链接或本地文件> [输出文件夹名]")
+        print("用法: python grab.py <链接或本地文件> [输出文件夹名] [语言] [--visual]")
         sys.exit(1)
-    target = sys.argv[1]
-    folder = sys.argv[2] if len(sys.argv) > 2 else "视频转文字_输出"
-    lang = sys.argv[3] if len(sys.argv) > 3 else None  # 可选: zh / en
+    try:
+        target, folder, lang, visual = parse_cli_args(sys.argv)
+    except ValueError as exc:
+        print(f"用法错误: {exc}", file=sys.stderr)
+        sys.exit(1)
     workdir = os.path.join(DESKTOP, folder)
     os.makedirs(workdir, exist_ok=True)
 
@@ -224,6 +271,7 @@ def main():
         print("### 第1步: 尝试直接扒现成字幕（最快、免费）###", flush=True)
         words = try_subtitles(target, workdir, lang)
         if words:
+            run_visual_if_requested(target, workdir, visual)
             print(f"\n[成功] 走字幕路成功! 完整文字稿.txt 已生成, 约 {words} 个词。", flush=True)
             print(f"位置: {workdir}", flush=True)
             return
@@ -242,6 +290,7 @@ def main():
         src = got[0]
     words = transcribe_with_gpu(src, workdir, lang)
     if words:
+        run_visual_if_requested(target if is_url else src, workdir, visual)
         print(f"\n[成功] 听译完成! 完整文字稿.txt 约 {words} 个词。", flush=True)
         print(f"位置: {workdir}", flush=True)
     else:
